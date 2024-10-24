@@ -1,0 +1,10 @@
+global using System;
+global using System.IO;
+global using System.Text;
+global using System.Windows.Forms;
+global using System.Threading.Tasks;
+global using System.Collections.Generic;
+global using System.Text.Json;
+global using System.Diagnostics;
+global using KMSChanger.Models;
+global using KMSChanger.Services;
