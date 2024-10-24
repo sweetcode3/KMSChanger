@@ -3,196 +3,124 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Management;
 using System.Net.NetworkInformation;
+using KMSChanger.Services;
+using KMSChanger.Models;
 
 namespace KMSChanger
 {
-    class Program
+    public class Program
     {
+        private static readonly ILogger _logger;
+        private static readonly WindowsActivationService _activationService;
+        private static readonly ConfigurationService _configService;
+
+        static Program()
+        {
+            _logger = new FileLogger();
+            _configService = new ConfigurationService(_logger);
+            _activationService = new WindowsActivationService(_logger, _configService);
+        }
+
+        [STAThread]
         static async Task Main(string[] args)
         {
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
             try
             {
-                var config = await LoadConfigAsync();
-                var windowsInfo = GetWindowsInfo();
-                var currentKey = GetCurrentProductKey();
-                
-                if (string.IsNullOrEmpty(currentKey))
+                if (!IsRunAsAdministrator())
                 {
-                    var newKey = GetKeyForProduct(config.ProductKeys, windowsInfo.Edition);
-                    if (!await InstallProductKey(newKey))
-                    {
-                        ShowError("Ошибка установки ключа продукта");
-                        return;
-                    }
+                    RestartAsAdmin();
+                    return;
                 }
 
-                foreach (var server in config.KmsServers)
+                await ProcessActivation();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Критическая ошибка: {ex}");
+                ShowError("Произошла критическая ошибка. Проверьте лог-файл для деталей.");
+            }
+        }
+
+        private static async Task ProcessActivation()
+        {
+            using (var loadingForm = new LoadingForm())
+            {
+                loadingForm.Show();
+                Application.DoEvents();
+
+                var result = await _activationService.ActivateWindowsAsync();
+
+                loadingForm.Close();
+
+                if (result.IsSuccess)
                 {
-                    if (await TryActivateWithServer(server))
-                    {
-                        ShowSuccess(windowsInfo);
-                        return;
-                    }
+                    ShowActivationSuccess(result);
                 }
+                else
+                {
+                    ShowError(result.Message, result.ErrorDetails);
+                }
+            }
+        }
 
-                ShowError("Не удалось активировать Windows с доступными KMS серверами");
+        private static bool IsRunAsAdministrator()
+        {
+            var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+
+        private static void RestartAsAdmin()
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Environment.CurrentDirectory,
+                    FileName = Application.ExecutablePath,
+                    Verb = "runas"
+                };
+
+                Process.Start(startInfo);
             }
             catch (Exception ex)
             {
-                ShowError($"Критическая ошибка: {ex.Message}");
+                _logger.LogError($"Ошибка запуска с правами администратора: {ex}");
+                ShowError("Для работы программы требуются права администратора.");
             }
+            Application.Exit();
         }
 
-        private static async Task<Config> LoadConfigAsync()
+        private static void ShowActivationSuccess(WindowsActivationResult result)
         {
-            try
-            {
-                var json = await File.ReadAllTextAsync("config.json");
-                return JsonSerializer.Deserialize<Config>(json);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Ошибка чтения конфигурации", ex);
-            }
-        }
+            var message = $"Windows успешно активирована\n\n" +
+                         $"Версия: {result.WindowsInfo.Edition}\n" +
+                         $"Сборка: {result.WindowsInfo.Version}\n" +
+                         $"Статус: Активирована";
 
-        private static WindowsInfo GetWindowsInfo()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
-                using var results = searcher.Get();
-                var os = results.Cast<ManagementObject>().First();
-                
-                return new WindowsInfo
-                {
-                    Edition = os["Caption"].ToString(),
-                    Version = os["Version"].ToString()
-                };
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Ошибка получения информации о Windows", ex);
-            }
-        }
-
-        private static string GetCurrentProductKey()
-        {
-            try
-            {
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "wmic",
-                        Arguments = "path softwarelicensingservice get OA3xOriginalProductKey",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        CreateNoWindow = true
-                    }
-                };
-                
-                process.Start();
-                var output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                return output.Trim();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private static async Task<bool> InstallProductKey(string key)
-        {
-            try
-            {
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "slmgr.vbs",
-                        Arguments = $"/ipk {key}",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-                
-                process.Start();
-                await process.WaitForExitAsync();
-                return process.ExitCode == 0;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static async Task<bool> TryActivateWithServer(string server)
-        {
-            try
-            {
-                if (!await PingServer(server))
-                    return false;
-
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "slmgr.vbs",
-                        Arguments = $"/skms {server}",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-                
-                process.Start();
-                await process.WaitForExitAsync();
-                
-                if (process.ExitCode != 0)
-                    return false;
-
-                process.StartInfo.Arguments = "/ato";
-                process.Start();
-                await process.WaitForExitAsync();
-                
-                return process.ExitCode == 0;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static async Task<bool> PingServer(string server)
-        {
-            try
-            {
-                using var ping = new Ping();
-                var reply = await ping.SendPingAsync(server);
-                return reply.Status == IPStatus.Success;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static void ShowSuccess(WindowsInfo info)
-        {
             MessageBox.Show(
-                $"Windows успешно активирована\n\nВерсия: {info.Edition}\nСборка: {info.Version}",
-                "Успех",
+                message,
+                "Активация успешна",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
         }
 
-        private static void ShowError(string message)
+        private static void ShowError(string message, string details = null)
         {
+            var errorMessage = message;
+            if (!string.IsNullOrEmpty(details))
+            {
+                errorMessage += $"\n\nДетали ошибки:\n{details}";
+            }
+
             MessageBox.Show(
-                message,
+                errorMessage,
                 "Ошибка",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
@@ -200,15 +128,34 @@ namespace KMSChanger
         }
     }
 
-    class Config
+    public class LoadingForm : Form
     {
-        public Dictionary<string, string> ProductKeys { get; set; }
-        public List<string> KmsServers { get; set; }
-    }
+        public LoadingForm()
+        {
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.Size = new Size(200, 70);
+            this.ShowInTaskbar = false;
 
-    class WindowsInfo
-    {
-        public string Edition { get; set; }
-        public string Version { get; set; }
+            var label = new Label
+            {
+                Text = "Выполняется активация...",
+                AutoSize = false,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill
+            };
+
+            this.Controls.Add(label);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                cp.ClassStyle |= 0x20000; // CS_DROPSHADOW
+                return cp;
+            }
+        }
     }
 }
