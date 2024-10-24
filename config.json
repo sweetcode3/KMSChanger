@@ -1,0 +1,13 @@
+{
+  "product_keys": {
+    "Windows 10 Home": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+    "Windows 10 Pro": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+    "Windows 11 Home": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+    "Windows 11 Pro": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+  },
+  "kms_servers": [
+    "kms.server1.com",
+    "kms.server2.com",
+    "kms.server3.com"
+  ]
+}
