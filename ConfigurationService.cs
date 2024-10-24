@@ -4,6 +4,7 @@ namespace KMSChanger.Services
     {
         private const string CONFIG_FILE = "config.json";
         private readonly ILogger _logger;
+        private Config _cachedConfig;
 
         public ConfigurationService(ILogger logger)
         {
@@ -12,33 +13,34 @@ namespace KMSChanger.Services
 
         public async Task<Config> LoadConfigAsync()
         {
+            if (_cachedConfig != null)
+            {
+                return _cachedConfig;
+            }
+
             try
             {
                 if (!File.Exists(CONFIG_FILE))
                 {
-                    throw new FileNotFoundException("Конфигурационный файл не найден");
+                    throw new FileNotFoundException("Конфигурационный файл не найден", CONFIG_FILE);
                 }
 
                 var jsonContent = await File.ReadAllTextAsync(CONFIG_FILE);
-                var config = JsonSerializer.Deserialize<Config>(jsonContent);
+                _cachedConfig = JsonSerializer.Deserialize<Config>(jsonContent);
 
-                if (!ValidateConfig(config))
+                if (!_cachedConfig.IsValid())
                 {
                     throw new InvalidOperationException("Неверный формат конфигурационного файла");
                 }
 
-                return config;
+                _logger.LogInfo("Конфигурация успешно загружена");
+                return _cachedConfig;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Ошибка загрузки конфигурации: {ex.Message}");
                 throw;
             }
-        }
-
-        private bool ValidateConfig(Config config)
-        {
-            return config?.ProductKeys?.Count > 0 && config?.KmsServers?.Count > 0;
         }
     }
 }
