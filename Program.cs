@@ -1,25 +1,14 @@
-using System;
-using System.Diagnostics;
-using System.Text.Json;
-using System.Management;
-using System.Net.NetworkInformation;
-using KMSChanger.Services;
-using KMSChanger.Models;
+using System.Windows.Forms;
 
 namespace KMSChanger
 {
     public class Program
     {
-        private static readonly ILogger _logger;
-        private static readonly WindowsActivationService _activationService;
-        private static readonly ConfigurationService _configService;
-
-        static Program()
-        {
-            _logger = new FileLogger();
-            _configService = new ConfigurationService(_logger);
-            _activationService = new WindowsActivationService(_logger, _configService);
-        }
+        private static ILogger _logger;
+        private static ConfigurationService _configService;
+        private static SystemInfoService _systemInfoService;
+        private static NetworkService _networkService;
+        private static WindowsActivationService _activationService;
 
         [STAThread]
         static async Task Main(string[] args)
@@ -27,6 +16,8 @@ namespace KMSChanger
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            InitializeServices();
 
             try
             {
@@ -45,25 +36,31 @@ namespace KMSChanger
             }
         }
 
+        private static void InitializeServices()
+        {
+            _logger = new FileLogger();
+            _configService = new ConfigurationService(_logger);
+            _systemInfoService = new SystemInfoService(_logger);
+            _networkService = new NetworkService(_logger);
+            _activationService = new WindowsActivationService(_logger, _configService, _systemInfoService, _networkService);
+        }
+
         private static async Task ProcessActivation()
         {
-            using (var loadingForm = new LoadingForm())
+            using var loadingForm = new LoadingForm();
+            loadingForm.Show();
+            Application.DoEvents();
+
+            var result = await _activationService.ActivateWindowsAsync();
+            loadingForm.Close();
+
+            if (result.IsSuccess)
             {
-                loadingForm.Show();
-                Application.DoEvents();
-
-                var result = await _activationService.ActivateWindowsAsync();
-
-                loadingForm.Close();
-
-                if (result.IsSuccess)
-                {
-                    ShowActivationSuccess(result);
-                }
-                else
-                {
-                    ShowError(result.Message, result.ErrorDetails);
-                }
+                ShowActivationSuccess(result);
+            }
+            else
+            {
+                ShowError(result.Message, result.ErrorDetails);
             }
         }
 
@@ -98,10 +95,11 @@ namespace KMSChanger
 
         private static void ShowActivationSuccess(WindowsActivationResult result)
         {
-            var message = $"Windows успешно активирована\n\n" +
-                         $"Версия: {result.WindowsInfo.Edition}\n" +
-                         $"Сборка: {result.WindowsInfo.Version}\n" +
-                         $"Статус: Активирована";
+            var message = $"Windows успешно активирована\n\n{result.WindowsInfo}";
+            if (!string.IsNullOrEmpty(result.UsedKmsServer))
+            {
+                message += $"\n\nИспользованный KMS сервер: {result.UsedKmsServer}";
+            }
 
             MessageBox.Show(
                 message,
@@ -132,20 +130,34 @@ namespace KMSChanger
     {
         public LoadingForm()
         {
+            InitializeComponents();
+        }
+
+        private void InitializeComponents()
+        {
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.Size = new Size(200, 70);
+            this.Size = new Size(300, 100);
             this.ShowInTaskbar = false;
 
             var label = new Label
             {
-                Text = "Выполняется активация...",
+                Text = "Выполняется активация Windows...",
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                Font = new Font(Font.FontFamily, 10)
             };
 
-            this.Controls.Add(label);
+            var progress = new ProgressBar
+            {
+                Style = ProgressBarStyle.Marquee,
+                MarqueeAnimationSpeed = 30,
+                Dock = DockStyle.Bottom,
+                Height = 20
+            };
+
+            this.Controls.AddRange(new Control[] { label, progress });
         }
 
         protected override CreateParams CreateParams
@@ -153,7 +165,7 @@ namespace KMSChanger
             get
             {
                 var cp = base.CreateParams;
-                cp.ClassStyle |= 0x20000; // CS_DROPSHADOW
+                cp.ClassStyle |= 0x20000;
                 return cp;
             }
         }
