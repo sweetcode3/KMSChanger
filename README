@@ -1,0 +1,21 @@
+KMSChanger/
+├── .github/
+│   └── workflows/
+│       └── build.yml
+├── Models/
+│   ├── Config.cs
+│   ├── WindowsInfo.cs
+│   └── WindowsActivationResult.cs
+├── Services/
+│   ├── ConfigurationService.cs
+│   ├── FileLogger.cs
+│   ├── ILogger.cs
+│   ├── NetworkService.cs
+│   ├── SystemInfoService.cs
+│   └── WindowsActivationService.cs
+├── .gitignore
+├── Program.cs
+├── GlobalUsings.cs
+├── app.manifest
+├── KMSChanger.csproj
+└── config.json
