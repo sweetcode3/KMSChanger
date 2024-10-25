@@ -2,14 +2,15 @@ namespace KMSChanger.Models
 {
     public class WindowsInfo
     {
-        public string Edition { get; set; }
-        public string Version { get; set; }
-        public string Architecture { get; set; }
-        public string CurrentProductKey { get; set; }
-        public string ActivationStatus { get; set; }
-        public DateTime InstallDate { get; set; }
-        public string RegisteredOwner { get; set; }
-        public string RegisteredOrganization { get; set; }
+        public string Edition { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public string Architecture { get; set; } = string.Empty;
+        public string CurrentProductKey { get; set; } = string.Empty;
+        public string ActivationStatus { get; set; } = string.Empty;
+        public string RegisteredOwner { get; set; } = string.Empty;
+        public string RegisteredOrganization { get; set; } = string.Empty;
+        public DateTime InstallDate { get; set; } = DateTime.Now;
+    }
 
         public override string ToString()
         {
