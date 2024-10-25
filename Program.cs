@@ -4,11 +4,20 @@ namespace KMSChanger
 {
     public class Program
     {
-        private static ILogger _logger;
-        private static ConfigurationService _configService;
-        private static SystemInfoService _systemInfoService;
-        private static NetworkService _networkService;
-        private static WindowsActivationService _activationService;
+        private static readonly ILogger _logger = new FileLogger();
+        private static readonly ConfigurationService _configService;
+        private static readonly SystemInfoService _systemInfoService;
+        private static readonly NetworkService _networkService;
+        private static readonly WindowsActivationService _activationService;
+
+        static Program()
+        {
+            _configService = new ConfigurationService(_logger);
+            _systemInfoService = new SystemInfoService(_logger);
+            _networkService = new NetworkService(_logger);
+            _activationService = new WindowsActivationService(_logger, _configService, _systemInfoService, _networkService);
+         }
+
 
         [STAThread]
         static async Task Main(string[] args)
