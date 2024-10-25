@@ -4,7 +4,7 @@ namespace KMSChanger.Services
     {
         private const string CONFIG_FILE = "config.json";
         private readonly ILogger _logger;
-        private Config _cachedConfig;
+        private Config? _cachedConfig;
 
         public ConfigurationService(ILogger logger)
         {
