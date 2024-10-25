@@ -2,35 +2,28 @@ using System.Windows.Forms;
 
 namespace KMSChanger
 {
-    public class Program
-{
-    private static readonly ILogger _logger;
-    private static readonly ConfigurationService _configService;
-    private static readonly SystemInfoService _systemInfoService;
-    private static readonly NetworkService _networkService;
-    private static readonly WindowsActivationService _activationService;
-
-    static Program()
+    public static class Program
     {
-        _logger = new FileLogger();
-        _configService = new ConfigurationService(_logger);
-        _systemInfoService = new SystemInfoService(_logger);
-        _networkService = new NetworkService(_logger);
-        _activationService = new WindowsActivationService(
-            _logger, 
-            _configService, 
-            _systemInfoService, 
-            _networkService
-        );
-   
+        private static readonly ILogger _logger = new FileLogger();
+        private static readonly ConfigurationService _configService;
+        private static readonly SystemInfoService _systemInfoService;
+        private static readonly NetworkService _networkService;
+        private static readonly WindowsActivationService _activationService;
+
+        static Program()
+        {
+            _configService = new ConfigurationService(_logger);
+            _systemInfoService = new SystemInfoService(_logger);
+            _networkService = new NetworkService(_logger);
+            _activationService = new WindowsActivationService(_logger, _configService, _systemInfoService, _networkService);
+        }
+
         [STAThread]
         static async Task Main(string[] args)
         {
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-
-            InitializeServices();
 
             try
             {
@@ -49,16 +42,7 @@ namespace KMSChanger
             }
         }
 
-        private static void InitializeServices()
-        {
-            _logger = new FileLogger();
-            _configService = new ConfigurationService(_logger);
-            _systemInfoService = new SystemInfoService(_logger);
-            _networkService = new NetworkService(_logger);
-            _activationService = new WindowsActivationService(_logger, _configService, _systemInfoService, _networkService);
-        }
-
-        private static async Task ProcessActivation()
+        static async Task ProcessActivation()
         {
             using var loadingForm = new LoadingForm();
             loadingForm.Show();
@@ -77,14 +61,14 @@ namespace KMSChanger
             }
         }
 
-        private static bool IsRunAsAdministrator()
+        static bool IsRunAsAdministrator()
         {
             var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
             var principal = new System.Security.Principal.WindowsPrincipal(identity);
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
 
-        private static void RestartAsAdmin()
+        static void RestartAsAdmin()
         {
             try
             {
@@ -106,7 +90,7 @@ namespace KMSChanger
             Application.Exit();
         }
 
-        private static void ShowActivationSuccess(WindowsActivationResult result)
+        static void ShowActivationSuccess(WindowsActivationResult result)
         {
             var message = $"Windows успешно активирована\n\n{result.WindowsInfo}";
             if (!string.IsNullOrEmpty(result.UsedKmsServer))
@@ -122,7 +106,7 @@ namespace KMSChanger
             );
         }
 
-        private static void ShowError(string message, string details = null)
+        static void ShowError(string message, string? details = null)
         {
             var errorMessage = message;
             if (!string.IsNullOrEmpty(details))
@@ -136,51 +120,6 @@ namespace KMSChanger
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
             );
-        }
-    }
-
-    public class LoadingForm : Form
-    {
-        public LoadingForm()
-        {
-            InitializeComponents();
-        }
-
-        private void InitializeComponents()
-        {
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.Size = new Size(300, 100);
-            this.ShowInTaskbar = false;
-
-            var label = new Label
-            {
-                Text = "Выполняется активация Windows...",
-                AutoSize = false,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Fill,
-                Font = new Font(Font.FontFamily, 10)
-            };
-
-            var progress = new ProgressBar
-            {
-                Style = ProgressBarStyle.Marquee,
-                MarqueeAnimationSpeed = 30,
-                Dock = DockStyle.Bottom,
-                Height = 20
-            };
-
-            this.Controls.AddRange(new Control[] { label, progress });
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                var cp = base.CreateParams;
-                cp.ClassStyle |= 0x20000;
-                return cp;
-            }
         }
     }
 }
