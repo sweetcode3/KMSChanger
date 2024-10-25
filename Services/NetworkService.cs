@@ -27,16 +27,17 @@ namespace KMSChanger.Services
             }
         }
 
-        public async Task<string> FindWorkingKmsServer(List<string> servers)
+        public async Task<string?> FindWorkingKmsServer(List<string> servers)
         {
-            foreach (var server in servers)
-            {
-                if (await CheckKmsServerConnection(server))
-                {
-                    return server;
-                }
-            }
-            return null;
+             foreach (var server in servers)
+             {
+                   if (await CheckKmsServerConnection(server))
+                   {
+                        return server;
+                   }
+             }
+             return null;
         }
+
     }
 }
