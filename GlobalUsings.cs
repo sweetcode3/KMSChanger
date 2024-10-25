@@ -8,3 +8,5 @@ global using System.Text.Json;
 global using System.Diagnostics;
 global using KMSChanger.Models;
 global using KMSChanger.Services;
+global using System.Net.NetworkInformation;
+global using System.Management;
