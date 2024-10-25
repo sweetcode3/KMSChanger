@@ -11,33 +11,35 @@ namespace KMSChanger.Services
 
         public async Task<WindowsInfo> GetWindowsInfoAsync()
         {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
-                using var results = searcher.Get();
-                var os = results.Cast<ManagementObject>().First();
+    try
+    {
+        using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
+        using var results = searcher.Get();
+        var os = results.Cast<ManagementObject>().FirstOrDefault() 
+            ?? throw new InvalidOperationException("Не удалось получить информацию о системе");
 
-                var info = new WindowsInfo
-                {
-                    Edition = os["Caption"].ToString(),
-                    Version = os["Version"].ToString(),
-                    Architecture = Environment.Is64BitOperatingSystem ? "x64" : "x86",
-                    CurrentProductKey = await GetCurrentProductKey(),
-                    ActivationStatus = await GetActivationStatus(),
-                    InstallDate = ManagementDateTimeConverter.ToDateTime(os["InstallDate"].ToString()),
-                    RegisteredOwner = os["RegisteredUser"].ToString(),
-                    RegisteredOrganization = os["Organization"].ToString()
-                };
+        var info = new WindowsInfo
+        {
+            Edition = os["Caption"]?.ToString() ?? "Unknown",
+            Version = os["Version"]?.ToString() ?? "Unknown",
+            Architecture = Environment.Is64BitOperatingSystem ? "x64" : "x86",
+            CurrentProductKey = await GetCurrentProductKey(),
+            ActivationStatus = await GetActivationStatus(),
+            InstallDate = ManagementDateTimeConverter.ToDateTime(os["InstallDate"]?.ToString() ?? string.Empty),
+            RegisteredOwner = os["RegisteredUser"]?.ToString() ?? "Unknown",
+            RegisteredOrganization = os["Organization"]?.ToString() ?? "Unknown"
+        };
 
-                _logger.LogInfo($"Получена информация о системе: {info.Edition}");
-                return info;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Ошибка получения информации о системе: {ex.Message}");
-                throw;
-            }
-        }
+        _logger.LogInfo($"Получена информация о системе: {info.Edition}");
+        return info;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"Ошибка получения информации о системе: {ex.Message}");
+        throw;
+    }
+}
+
 
         private async Task<string> GetCurrentProductKey()
         {
