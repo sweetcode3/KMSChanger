@@ -3,13 +3,13 @@ namespace KMSChanger.Models
     public class WindowsActivationResult
     {
         public bool IsSuccess { get; set; }
-        public string Message { get; set; }
-        public string ErrorDetails { get; set; }
-        public WindowsInfo WindowsInfo { get; set; }
-        public string UsedKmsServer { get; set; }
-        public string AppliedProductKey { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? ErrorDetails { get; set; }
+        public WindowsInfo? WindowsInfo { get; set; }
+        public string UsedKmsServer { get; set; } = string.Empty;
+        public string AppliedProductKey { get; set; } = string.Empty;
 
-        public WindowsActivationResult(bool success, string message, WindowsInfo info = null, string error = null)
+        public WindowsActivationResult(bool success, string message, WindowsInfo? info = null, string? error = null)
         {
             IsSuccess = success;
             Message = message;
