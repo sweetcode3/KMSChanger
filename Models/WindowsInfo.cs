@@ -10,7 +10,6 @@ namespace KMSChanger.Models
         public string RegisteredOwner { get; set; } = string.Empty;
         public string RegisteredOrganization { get; set; } = string.Empty;
         public DateTime InstallDate { get; set; } = DateTime.Now;
-    }
 
         public override string ToString()
         {
